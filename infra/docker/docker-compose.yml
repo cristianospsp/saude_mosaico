@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: saude_mosaico_mysql
+    environment:
+      MYSQL_DATABASE: saude_mosaico
+      MYSQL_USER: saude_mosaico
+      MYSQL_PASSWORD: saude_mosaico
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - saude_mosaico_network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: saude_mosaico_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: saude_mosaico
+      RABBITMQ_DEFAULT_PASS: saude_mosaico
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - saude_mosaico_network
+
+  redis:
+    image: redis:6.2-alpine
+    container_name: saude_mosaico_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - saude_mosaico_network
+
+volumes:
+  mysql_data:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  saude_mosaico_network:
+    driver: bridge
