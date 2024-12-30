@@ -16,10 +16,12 @@
     </parent>
 
     <modules>
-        <module>auth-service</module>
         <module>agendamento-service</module>
+        <module>auth-service</module>
         <module>notificacao-service</module>
         <module>video-service</module>
+        <module>usuarios-service</module>
+        <module>especialistas-service</module>
     </modules>
 
     <properties>
