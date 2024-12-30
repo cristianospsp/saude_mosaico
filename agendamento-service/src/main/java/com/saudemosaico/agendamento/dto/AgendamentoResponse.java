@@ -1,7 +1,7 @@
 package com.saudemosaico.agendamento.dto;
 
-import lombok.Data;
 import com.saudemosaico.agendamento.domain.StatusAgendamento;
+import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
