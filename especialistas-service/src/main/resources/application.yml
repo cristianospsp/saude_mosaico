@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: especialistas-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/saude_mosaico
+    username: saude_mosaico
+    password: saude_mosaico
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    open-in-view: false
+
+server:
+  port: 8082
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.saudemosaico.especialistas: DEBUG
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
