@@ -21,4 +21,8 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
         String especialistaId,
         LocalDateTime dataHoraAgendamento
     );
+    
+    List<Agendamento> findByPacienteId(String pacienteId);
+    
+    List<Agendamento> findByEspecialistaId(String especialistaId);
 }
