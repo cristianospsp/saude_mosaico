@@ -24,7 +24,7 @@ public class EspecialistaServiceImpl implements EspecialistaService {
     @Transactional
     public EspecialistaResponse criar(EspecialistaRequest request) {
         validarNovoEspecialista(request);
-        
+
         Especialista especialista = new Especialista();
         especialista.setNome(request.getNome());
         especialista.setCrm(request.getCrm());
@@ -32,7 +32,8 @@ public class EspecialistaServiceImpl implements EspecialistaService {
         especialista.setEmail(request.getEmail());
         especialista.setTelefone(request.getTelefone());
         especialista.setEspecialidades(request.getEspecialidades());
-        
+        especialista.setAtivo(true);
+
         return converterParaResponse(especialistaRepository.save(especialista));
     }
 
@@ -40,55 +41,55 @@ public class EspecialistaServiceImpl implements EspecialistaService {
     @Transactional(readOnly = true)
     public EspecialistaResponse buscarPorId(Long id) {
         return especialistaRepository.findById(id)
-            .map(this::converterParaResponse)
-            .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
+                .map(this::converterParaResponse)
+                .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public EspecialistaResponse buscarPorCrm(String crm) {
         return especialistaRepository.findByCrm(crm)
-            .map(this::converterParaResponse)
-            .orElseThrow(() -> new EspecialistaNaoEncontradoException(crm));
+                .map(this::converterParaResponse)
+                .orElseThrow(() -> new EspecialistaNaoEncontradoException(crm));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EspecialistaResponse> buscarPorEspecialidade(Especialidade especialidade) {
         return especialistaRepository.findByEspecialidade(especialidade).stream()
-            .map(this::converterParaResponse)
-            .collect(Collectors.toList());
+                .map(this::converterParaResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EspecialistaResponse> listarTodos() {
         return especialistaRepository.findAll().stream()
-            .map(this::converterParaResponse)
-            .collect(Collectors.toList());
+                .map(this::converterParaResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EspecialistaResponse> listarAtivos() {
         return especialistaRepository.findByAtivoTrue().stream()
-            .map(this::converterParaResponse)
-            .collect(Collectors.toList());
+                .map(this::converterParaResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public EspecialistaResponse atualizar(Long id, EspecialistaRequest request) {
         Especialista especialista = especialistaRepository.findById(id)
-            .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
-            
+                .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
+
         validarAtualizacaoEspecialista(request, especialista);
-        
+
         especialista.setNome(request.getNome());
         especialista.setEmail(request.getEmail());
         especialista.setTelefone(request.getTelefone());
         especialista.setEspecialidades(request.getEspecialidades());
-        
+
         return converterParaResponse(especialistaRepository.save(especialista));
     }
 
@@ -96,8 +97,12 @@ public class EspecialistaServiceImpl implements EspecialistaService {
     @Transactional
     public void inativar(Long id) {
         Especialista especialista = especialistaRepository.findById(id)
-            .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
-            
+                .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
+
+        if (!especialista.isAtivo()) {
+            throw new EspecialistaException("Especialista já está inativo");
+        }
+
         especialista.setAtivo(false);
         especialistaRepository.save(especialista);
     }
@@ -106,26 +111,48 @@ public class EspecialistaServiceImpl implements EspecialistaService {
     @Transactional
     public void reativar(Long id) {
         Especialista especialista = especialistaRepository.findById(id)
-            .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
-            
+                .orElseThrow(() -> new EspecialistaNaoEncontradoException(id));
+
+        if (especialista.isAtivo()) {
+            throw new EspecialistaException("Especialista já está ativo");
+        }
+
         especialista.setAtivo(true);
         especialistaRepository.save(especialista);
     }
 
     private void validarNovoEspecialista(EspecialistaRequest request) {
+        // Validação de CRM
         if (especialistaRepository.existsByCrm(request.getCrm())) {
             throw new EspecialistaException("Já existe um especialista com este CRM");
         }
-        
+
+        // Validação de CPF
+        if (especialistaRepository.existsByCpf(request.getCpf())) {
+            throw new EspecialistaException("Já existe um especialista com este CPF");
+        }
+
+        // Validação de email
         if (especialistaRepository.existsByEmail(request.getEmail())) {
             throw new EspecialistaException("Já existe um especialista com este email");
+        }
+
+        // Validação de especialidades
+        if (request.getEspecialidades() == null || request.getEspecialidades().isEmpty()) {
+            throw new EspecialistaException("O especialista deve ter pelo menos uma especialidade");
         }
     }
 
     private void validarAtualizacaoEspecialista(EspecialistaRequest request, Especialista especialista) {
+        // Validação de email na atualização
         if (!especialista.getEmail().equals(request.getEmail()) &&
-            especialistaRepository.existsByEmail(request.getEmail())) {
+                especialistaRepository.existsByEmail(request.getEmail())) {
             throw new EspecialistaException("Já existe um especialista com este email");
+        }
+
+        // Validação de especialidades na atualização
+        if (request.getEspecialidades() == null || request.getEspecialidades().isEmpty()) {
+            throw new EspecialistaException("O especialista deve ter pelo menos uma especialidade");
         }
     }
 
