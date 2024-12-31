@@ -1,9 +1,11 @@
 package com.saudemosaico.agendamento.service;
 
+import com.saudemosaico.agendamento.client.EspecialistaClient;
 import com.saudemosaico.agendamento.domain.Agendamento;
 import com.saudemosaico.agendamento.domain.StatusAgendamento;
 import com.saudemosaico.agendamento.dto.AgendamentoRequest;
 import com.saudemosaico.agendamento.dto.AgendamentoResponse;
+import com.saudemosaico.agendamento.dto.EspecialistaResponse;
 import com.saudemosaico.agendamento.exception.AgendamentoException;
 import com.saudemosaico.agendamento.exception.AgendamentoNotFoundException;
 import com.saudemosaico.agendamento.repository.AgendamentoRepository;
@@ -18,14 +20,29 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AgendamentoServiceImpl implements AgendamentoService {
-    
+
     private final AgendamentoRepository agendamentoRepository;
-    
+    private final EspecialistaClient especialistaClient;
+
     @Override
     @Transactional
     public AgendamentoResponse criar(AgendamentoRequest request) {
+        // Validar se especialista existe e está ativo
+        EspecialistaResponse especialista = especialistaClient.buscarPorId(request.getEspecialistaId())
+                .orElseThrow(() -> new AgendamentoException("Especialista não encontrado"));
+
+        if (!especialista.isAtivo()) {
+            throw new AgendamentoException("Especialista não está ativo");
+        }
+
+        // Validar se especialista possui a especialidade solicitada
+        if (!especialista.getEspecialidades().contains(request.getEspecialidade())) {
+            throw new AgendamentoException("Especialista não atende a especialidade solicitada");
+        }
+
+        // Validar disponibilidade de horário
         validarDisponibilidade(request);
-        
+
         Agendamento agendamento = new Agendamento();
         agendamento.setPacienteId(request.getPacienteId());
         agendamento.setEspecialistaId(request.getEspecialistaId());
@@ -33,59 +50,65 @@ public class AgendamentoServiceImpl implements AgendamentoService {
         agendamento.setDataHoraAgendamento(request.getDataHoraAgendamento());
         agendamento.setStatus(StatusAgendamento.AGUARDANDO_CONFIRMACAO);
         agendamento.setLinkVideoConferencia(gerarLinkVideoconferencia());
-        
+
         return converterParaResponse(agendamentoRepository.save(agendamento));
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public AgendamentoResponse buscarPorId(Long id) {
         return agendamentoRepository.findById(id)
-            .map(this::converterParaResponse)
-            .orElseThrow(() -> new AgendamentoNotFoundException(id));
+                .map(this::converterParaResponse)
+                .orElseThrow(() -> new AgendamentoNotFoundException(id));
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<AgendamentoResponse> listarTodos() {
         return agendamentoRepository.findAll().stream()
-            .map(this::converterParaResponse)
-            .collect(Collectors.toList());
+                .map(this::converterParaResponse)
+                .collect(Collectors.toList());
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<AgendamentoResponse> listarPorPaciente(String pacienteId) {
         return agendamentoRepository.findByPacienteId(pacienteId).stream()
-            .map(this::converterParaResponse)
-            .collect(Collectors.toList());
+                .map(this::converterParaResponse)
+                .collect(Collectors.toList());
     }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public List<AgendamentoResponse> listarPorEspecialista(String especialistaId) {
-        return agendamentoRepository.findByEspecialistaId(especialistaId).stream()
-            .map(this::converterParaResponse)
-            .collect(Collectors.toList());
-    }
-    
+
     @Override
     @Transactional
     public AgendamentoResponse atualizar(Long id, AgendamentoRequest request) {
         Agendamento agendamento = agendamentoRepository.findById(id)
-            .orElseThrow(() -> new AgendamentoNotFoundException(id));
-            
+                .orElseThrow(() -> new AgendamentoNotFoundException(id));
+
+        // Validar especialista novamente se houve mudança
+        if (!agendamento.getEspecialistaId().equals(request.getEspecialistaId())) {
+            EspecialistaResponse especialista = especialistaClient.buscarPorId(request.getEspecialistaId())
+                    .orElseThrow(() -> new AgendamentoException("Especialista não encontrado"));
+
+            if (!especialista.isAtivo()) {
+                throw new AgendamentoException("Especialista não está ativo");
+            }
+
+            if (!especialista.getEspecialidades().contains(request.getEspecialidade())) {
+                throw new AgendamentoException("Especialista não atende a especialidade solicitada");
+            }
+        }
+
         if (!agendamento.getDataHoraAgendamento().equals(request.getDataHoraAgendamento())) {
             validarDisponibilidade(request);
         }
-        
+
         agendamento.setEspecialistaId(request.getEspecialistaId());
         agendamento.setEspecialidade(request.getEspecialidade());
         agendamento.setDataHoraAgendamento(request.getDataHoraAgendamento());
-        
+
         return converterParaResponse(agendamentoRepository.save(agendamento));
     }
-    
+
     @Override
     @Transactional
     public void deletar(Long id) {
@@ -94,7 +117,7 @@ public class AgendamentoServiceImpl implements AgendamentoService {
         }
         agendamentoRepository.deleteById(id);
     }
-    
+
     private void validarDisponibilidade(AgendamentoRequest request) {
         if (agendamentoRepository.existsByEspecialistaIdAndDataHoraAgendamento(
                 request.getEspecialistaId(),
@@ -102,11 +125,11 @@ public class AgendamentoServiceImpl implements AgendamentoService {
             throw new AgendamentoException("Horário indisponível para o especialista selecionado");
         }
     }
-    
+
     private String gerarLinkVideoconferencia() {
         return "https://meet.saude-mosaico.com/" + System.currentTimeMillis();
     }
-    
+
     private AgendamentoResponse converterParaResponse(Agendamento agendamento) {
         AgendamentoResponse response = new AgendamentoResponse();
         response.setId(agendamento.getId());
