@@ -4,25 +4,21 @@ import com.saudemosaico.agendamento.domain.Agendamento;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> {
-    
-    @Query("SELECT a FROM Agendamento a WHERE a.especialistaId = :especialistaId " +
-           "AND a.dataHoraAgendamento BETWEEN :inicio AND :fim")
-    List<Agendamento> findByEspecialistaAndPeriodo(
-        @Param("especialistaId") String especialistaId,
-        @Param("inicio") LocalDateTime inicio,
-        @Param("fim") LocalDateTime fim
+    // Métodos existentes...
+
+    @Query("SELECT COUNT(a) FROM Agendamento a WHERE a.pacienteId = :pacienteId " +
+            "AND DATE(a.dataHoraAgendamento) = :data")
+    int countByPacienteIdAndData(@Param("pacienteId") String pacienteId, @Param("data") LocalDate data);
+
+    @Query("SELECT MAX(a.dataHoraAgendamento) FROM Agendamento a " +
+            "WHERE a.especialistaId = :especialistaId " +
+            "AND DATE(a.dataHoraAgendamento) = :data")
+    LocalDateTime findUltimaConsultaEspecialista(
+            @Param("especialistaId") String especialistaId,
+            @Param("data") LocalDate data
     );
-    
-    boolean existsByEspecialistaIdAndDataHoraAgendamento(
-        String especialistaId,
-        LocalDateTime dataHoraAgendamento
-    );
-    
-    List<Agendamento> findByPacienteId(String pacienteId);
-    
-    List<Agendamento> findByEspecialistaId(String especialistaId);
 }
