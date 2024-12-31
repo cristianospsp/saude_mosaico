@@ -7,6 +7,7 @@ import com.saudemosaico.especialistas.dto.EspecialistaResponse;
 import com.saudemosaico.especialistas.exception.EspecialistaException;
 import com.saudemosaico.especialistas.exception.EspecialistaNaoEncontradoException;
 import com.saudemosaico.especialistas.repository.EspecialistaRepository;
+import com.saudemosaico.especialistas.util.ValidadorUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -123,23 +124,34 @@ public class EspecialistaServiceImpl implements EspecialistaService {
 
     private void validarNovoEspecialista(EspecialistaRequest request) {
         // Validação de CRM
+        if (!ValidadorUtil.validarCRM(request.getCrm())) {
+            throw new EspecialistaException("Formato de CRM inválido");
+        }
         if (especialistaRepository.existsByCrm(request.getCrm())) {
             throw new EspecialistaException("Já existe um especialista com este CRM");
         }
 
         // Validação de CPF
+        if (!ValidadorUtil.validarCPF(request.getCpf())) {
+            throw new EspecialistaException("CPF inválido");
+        }
         if (especialistaRepository.existsByCpf(request.getCpf())) {
             throw new EspecialistaException("Já existe um especialista com este CPF");
         }
 
-        // Validação de email
-        if (especialistaRepository.existsByEmail(request.getEmail())) {
-            throw new EspecialistaException("Já existe um especialista com este email");
+        // Validação de nome
+        if (!ValidadorUtil.validarNome(request.getNome())) {
+            throw new EspecialistaException("Nome inválido (deve ter entre 2 e 90 caracteres e conter apenas letras)");
         }
 
-        // Validação de especialidades
-        if (request.getEspecialidades() == null || request.getEspecialidades().isEmpty()) {
-            throw new EspecialistaException("O especialista deve ter pelo menos uma especialidade");
+        // Validação de telefone
+        if (!ValidadorUtil.validarTelefone(request.getTelefone())) {
+            throw new EspecialistaException("Formato de telefone inválido");
+        }
+
+        // Validação de quantidade de especialidades
+        if (!ValidadorUtil.validarQuantidadeEspecialidades(request.getEspecialidades().size())) {
+            throw new EspecialistaException("O especialista deve ter entre 1 e 4 especialidades");
         }
     }
 
