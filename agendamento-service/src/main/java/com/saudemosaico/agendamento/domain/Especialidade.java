@@ -1,8 +1,6 @@
-package com.saudemosaico.especialistas.domain;
+package com.saudemosaico.agendamento.domain;
 
 public enum Especialidade {
-    ASSISTENTE_SOCIAL("Assistente Social"),
-    MEDICO_DE_FAMILIA("Médico de Família"),
     CLINICO_GERAL("Clínico Geral"),
     PEDIATRIA("Pediatria"),
     GINECOLOGIA("Ginecologia"),
@@ -12,7 +10,10 @@ public enum Especialidade {
     ORTOPEDIA("Ortopedia"),
     OFTALMOLOGIA("Oftalmologia"),
     NUTRICIONISTA("Nutricionista"),
-    PSICOLOGIA("Psicologia");
+    PSICOLOGIA("Psicologia"),
+    FISIOTERAPIA("Fisioterapia"),
+    FONOAUDIOLOGIA("Fonoaudiologia"),
+    ASSISTENTE_SOCIAL("Assistente Social");
 
     private final String descricao;
 

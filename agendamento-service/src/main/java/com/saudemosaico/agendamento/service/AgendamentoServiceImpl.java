@@ -2,6 +2,7 @@ package com.saudemosaico.agendamento.service;
 
 import com.saudemosaico.agendamento.client.EspecialistaClient;
 import com.saudemosaico.agendamento.domain.Agendamento;
+import com.saudemosaico.agendamento.domain.Especialidade;
 import com.saudemosaico.agendamento.domain.StatusAgendamento;
 import com.saudemosaico.agendamento.dto.AgendamentoRequest;
 import com.saudemosaico.agendamento.dto.AgendamentoResponse;
@@ -9,6 +10,8 @@ import com.saudemosaico.agendamento.dto.EspecialistaResponse;
 import com.saudemosaico.agendamento.exception.AgendamentoException;
 import com.saudemosaico.agendamento.exception.AgendamentoNotFoundException;
 import com.saudemosaico.agendamento.repository.AgendamentoRepository;
+import com.saudemosaico.agendamento.security.SanitizadorUtil;
+import com.saudemosaico.agendamento.util.ValidadorAgendamentoUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +26,18 @@ public class AgendamentoServiceImpl implements AgendamentoService {
 
     private final AgendamentoRepository agendamentoRepository;
     private final EspecialistaClient especialistaClient;
+    private final FeriadoService feriadoService;
+    private final SanitizadorUtil sanitizadorUtil;
 
     @Override
     @Transactional
     public AgendamentoResponse criar(AgendamentoRequest request) {
+        // Sanitizar inputs
+        request.setPacienteId(sanitizadorUtil.sanitizarInput(request.getPacienteId()));
+        request.setEspecialistaId(sanitizadorUtil.sanitizarInput(request.getEspecialistaId()));
+
         // Validar se especialista existe e está ativo
-        EspecialistaResponse especialista = especialistaClient.buscarPorId(request.getEspecialistaId())
+        EspecialistaResponse especialista = especialistaClient.buscarPorId(Long.valueOf(request.getEspecialistaId()))
                 .orElseThrow(() -> new AgendamentoException("Especialista não encontrado"));
 
         if (!especialista.isAtivo()) {
@@ -40,13 +49,13 @@ public class AgendamentoServiceImpl implements AgendamentoService {
             throw new AgendamentoException("Especialista não atende a especialidade solicitada");
         }
 
-        // Validar disponibilidade de horário
-        validarDisponibilidade(request);
+        // Validar regras de agendamento
+        validarAgendamento(request);
 
         Agendamento agendamento = new Agendamento();
         agendamento.setPacienteId(request.getPacienteId());
         agendamento.setEspecialistaId(request.getEspecialistaId());
-        agendamento.setEspecialidade(request.getEspecialidade());
+        agendamento.setEspecialidade(String.valueOf(request.getEspecialidade()));
         agendamento.setDataHoraAgendamento(request.getDataHoraAgendamento());
         agendamento.setStatus(StatusAgendamento.AGUARDANDO_CONFIRMACAO);
         agendamento.setLinkVideoConferencia(gerarLinkVideoconferencia());
@@ -73,7 +82,17 @@ public class AgendamentoServiceImpl implements AgendamentoService {
     @Override
     @Transactional(readOnly = true)
     public List<AgendamentoResponse> listarPorPaciente(String pacienteId) {
-        return agendamentoRepository.findByPacienteId(pacienteId).stream()
+        String pacienteIdSanitizado = sanitizadorUtil.sanitizarInput(pacienteId);
+        return agendamentoRepository.findByPacienteId(pacienteIdSanitizado).stream()
+                .map(this::converterParaResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AgendamentoResponse> listarPorEspecialista(String especialistaId) {
+        String especialistaIdSanitizado = sanitizadorUtil.sanitizarInput(especialistaId);
+        return agendamentoRepository.findByEspecialistaId(especialistaIdSanitizado).stream()
                 .map(this::converterParaResponse)
                 .collect(Collectors.toList());
     }
@@ -84,9 +103,13 @@ public class AgendamentoServiceImpl implements AgendamentoService {
         Agendamento agendamento = agendamentoRepository.findById(id)
                 .orElseThrow(() -> new AgendamentoNotFoundException(id));
 
+        // Sanitizar inputs
+        request.setPacienteId(sanitizadorUtil.sanitizarInput(request.getPacienteId()));
+        request.setEspecialistaId(sanitizadorUtil.sanitizarInput(request.getEspecialistaId()));
+
         // Validar especialista novamente se houve mudança
         if (!agendamento.getEspecialistaId().equals(request.getEspecialistaId())) {
-            EspecialistaResponse especialista = especialistaClient.buscarPorId(request.getEspecialistaId())
+            EspecialistaResponse especialista = especialistaClient.buscarPorId(Long.valueOf(request.getEspecialistaId()))
                     .orElseThrow(() -> new AgendamentoException("Especialista não encontrado"));
 
             if (!especialista.isAtivo()) {
@@ -99,11 +122,11 @@ public class AgendamentoServiceImpl implements AgendamentoService {
         }
 
         if (!agendamento.getDataHoraAgendamento().equals(request.getDataHoraAgendamento())) {
-            validarDisponibilidade(request);
+            validarAgendamento(request);
         }
 
         agendamento.setEspecialistaId(request.getEspecialistaId());
-        agendamento.setEspecialidade(request.getEspecialidade());
+        agendamento.setEspecialidade(String.valueOf(request.getEspecialidade()));
         agendamento.setDataHoraAgendamento(request.getDataHoraAgendamento());
 
         return converterParaResponse(agendamentoRepository.save(agendamento));
@@ -116,6 +139,34 @@ public class AgendamentoServiceImpl implements AgendamentoService {
             throw new AgendamentoNotFoundException(id);
         }
         agendamentoRepository.deleteById(id);
+    }
+
+    private void validarAgendamento(AgendamentoRequest request) {
+        // Validação de disponibilidade
+        validarDisponibilidade(request);
+
+        // Validações de horário e dia
+        ValidadorAgendamentoUtil.validarHorarioComercial(request.getDataHoraAgendamento());
+        ValidadorAgendamentoUtil.validarDiaUtil(request.getDataHoraAgendamento());
+        ValidadorAgendamentoUtil.validarAntecedenciaMinima(request.getDataHoraAgendamento());
+
+        // Validar feriados
+        if (feriadoService.isFeriado(request.getDataHoraAgendamento().toLocalDate())) {
+            throw new AgendamentoException("Não é permitido agendar em feriados");
+        }
+
+        // Validar intervalo entre consultas
+        LocalDateTime ultimaConsulta = agendamentoRepository
+                .findUltimaConsultaEspecialista(request.getEspecialistaId(),
+                        request.getDataHoraAgendamento().toLocalDate());
+        ValidadorAgendamentoUtil.validarIntervaloEntreConsultas(request.getDataHoraAgendamento(),
+                ultimaConsulta);
+
+        // Validar limite diário de consultas do paciente
+        int consultasNoDia = agendamentoRepository
+                .countByPacienteIdAndData(request.getPacienteId(),
+                        request.getDataHoraAgendamento().toLocalDate());
+        ValidadorAgendamentoUtil.validarLimiteDiarioConsultas(consultasNoDia);
     }
 
     private void validarDisponibilidade(AgendamentoRequest request) {
