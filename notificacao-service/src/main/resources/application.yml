@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: notificacao-service
+  
+  # Database
+  datasource:
+    url: jdbc:mysql://localhost:3306/saude_mosaico
+    username: saude_mosaico
+    password: saude_mosaico
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+  
+  # RabbitMQ
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: saude_mosaico
+    password: saude_mosaico
+  
+  # Email
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:seu-email@gmail.com}
+    password: ${MAIL_PASSWORD:sua-senha}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  port: 8084
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+logging:
+  level:
+    com.saudemosaico.notificacao: DEBUG
+    org.springframework.amqp: INFO
